@@ -8,9 +8,9 @@ class PasswordManagers:
 
     def change_password(self, old_pass, new_pass):
         try:
-            self.validator.is_valid(password=new_pass, old_password=old_pass)
+            self.validator.validate_new_password(password=new_pass, old_password=old_pass)
         except InvalidPasswordException as e:
-            print("Unable to change password: {}".format(e))
+            print(f"Unable to change password: {e}")
             return False
 
         self.update_password(old_pass, new_pass)

@@ -14,6 +14,6 @@ class ValidatorsFactory:
         elif pass_type == PasswordType.strict:
             validator = StrictPasswordValidator()
         else:
-            raise ValueError("Invalid password type {}".format(pass_type))
+            raise ValueError(f"Invalid password type {pass_type}")
 
         return validator

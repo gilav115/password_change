@@ -14,6 +14,6 @@ class ConfigurationFetcher:
         elif pass_type == PasswordType.strict:
             conf = FileReader.read_json("configurations/strict_password_configuration.json")
         else:
-            raise ValueError("Invalid password type {}".format(pass_type))
+            raise ValueError(f"Invalid password type {pass_type}")
 
         return conf
