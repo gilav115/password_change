@@ -1,14 +1,14 @@
 import re
 from collections import Counter
 from helpers.configuration_fetcher import ConfigurationFetcher
-from helpers.consts import RequirementType, Passwords
+from helpers.consts import RequirementType, ValidPasswords, PasswordType
 from difflib import SequenceMatcher
 from helpers.exceptions import InvalidPasswordException
 
 
 class PasswordValidator:
     def __init__(self, pass_type='default'):
-        self.old_password = Passwords.valid["old"]
+        self.old_password = ValidPasswords.old_pass
         self.conf = ConfigurationFetcher.fetch(pass_type)
 
     def is_valid(self, password):
@@ -29,54 +29,46 @@ class PasswordValidator:
         return self.satisfy_max_requirement(self.conf['length'], len(password))
 
     def old_password_conflict(self, old_password, password):
-        used = self.is_old(password)
-        # not used so nothing to check
-        if not used:
+        conf = self.conf['old_password']
+        if not conf['max']:
             return False
 
-        conf = self.conf['old_password']
-        # used but repeating an old password is not allowed
-        if not conf['allowed']:
-            return True
-
-        # reuse allowed up to max similarity
         return self.similarity(old_password, password) > conf['max']['value']
 
     def contains_illegal_chars(self, password):
         special = self.conf['special']['legal']
-        reg = "[a-zA-Z0-9{}]+".format(special)
+        reg = f"^[a-zA-Z0-9{special}]*$"
         res = re.search(reg, password)
-
-        return res is not None
+        return res is None
 
     def satisfy_upper_case_requirements(self, password):
         upper_case = self.pattern_count("[A-Z]", password)
-        min_req = self.satisfy_min_requirement(self.conf['upper_case'], len(upper_case))
-        max_req = self.satisfy_max_requirement(self.conf['upper_case'], len(upper_case))
+        min_req = self.satisfy_min_requirement(self.conf['upper_case'], upper_case)
+        max_req = self.satisfy_max_requirement(self.conf['upper_case'], upper_case)
         return min_req and max_req
 
     def satisfy_lower_case_requirements(self, password):
         lower_case = self.pattern_count("[a-z]", password)
-        min_req = self.satisfy_min_requirement(self.conf['lower_case'], len(lower_case))
-        max_req = self.satisfy_max_requirement(self.conf['lower_case'], len(lower_case))
+        min_req = self.satisfy_min_requirement(self.conf['lower_case'], lower_case)
+        max_req = self.satisfy_max_requirement(self.conf['lower_case'], lower_case)
         return min_req and max_req
 
     def satisfy_numeric_requirements(self, password):
         numeric = self.pattern_count("[0-9]", password)
-        min_req = self.satisfy_min_requirement(self.conf['numeric'], len(numeric))
-        max_req = self.satisfy_max_requirement(self.conf['numeric'], len(numeric))
+        min_req = self.satisfy_min_requirement(self.conf['numeric'], numeric)
+        max_req = self.satisfy_max_requirement(self.conf['numeric'], numeric, len(password))
         return min_req and max_req
 
     def satisfy_special_char_requirements(self, password):
         special = self.pattern_count("[!@#$&*]", password)
-        min_req = self.satisfy_min_requirement(self.conf['special'], len(special))
-        max_req = self.satisfy_max_requirement(self.conf['special'], len(special))
+        min_req = self.satisfy_min_requirement(self.conf['special'], special)
+        max_req = self.satisfy_max_requirement(self.conf['special'], special)
         return min_req and max_req
 
     def too_many_duplicates(self, password):
         counter = Counter(password)
         max_dup = max(counter.values())
-        return self.satisfy_max_requirement(self.conf['duplicates'], max_dup)
+        return not self.satisfy_max_requirement(self.conf['duplicates'], max_dup)
 
     def pattern_count(self, pattern, password):
         res = re.findall(pattern, password)
@@ -95,7 +87,7 @@ class PasswordValidator:
         elif req_type == RequirementType.percentage:
             satisfy = 100 * float(length) / float(full_length) >= value
         else:
-            raise ValueError("Unsupported requirement type {}".format(req_type))
+            raise ValueError(f"Unsupported requirement type {req_type}")
 
         return satisfy
 
@@ -112,7 +104,7 @@ class PasswordValidator:
         elif req_type == RequirementType.percentage:
             satisfy = 100 * float(length) / float(full_length) <= value
         else:
-            raise ValueError("Unsupported requirement type {}".format(req_type))
+            raise ValueError(f"Unsupported requirement type {req_type}")
 
         return satisfy
 
@@ -124,10 +116,10 @@ class PasswordValidator:
         s.ratio() ==> 0.75
         :param old_pass:
         :param new_pass:
-        :return: similarity in percentage 0 - 100
+        :return: similarity in percentage 0 - 100, always as an int (70 and not 70.01)
         """
         s = SequenceMatcher(None, old_pass, new_pass)
-        return s.ratio() * 100
+        return int(s.ratio() * 100)
 
     def include(self, pattern, s):
         res = re.search(pattern, s)

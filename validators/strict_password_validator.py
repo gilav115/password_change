@@ -1,4 +1,4 @@
-from password_validator import *
+from validators.password_validator import *
 
 
 class StrictPasswordValidator(PasswordValidator):
@@ -17,18 +17,24 @@ class StrictPasswordValidator(PasswordValidator):
     """
 
     def __init__(self):
-        super().__init__()
+        super().__init__(pass_type=PasswordType.strict)
 
-    def is_valid(self, password, old_password):
+    def validate_new_password(self, password, old_password):
+        if not password:
+            raise InvalidPasswordException("You must provide a new password")
+
+        if not old_password:
+            raise InvalidPasswordException("In order to change password you must provide your old/current password")
+
         # At least 18 alphanumeric characters
         if not self.long_enough(password):
             value = self.conf['length']['min']['value']
-            raise InvalidPasswordException("Password must be at least {} chars length".format(value))
+            raise InvalidPasswordException(f"Password must be at least {value} chars length")
 
         # Before checking anything else, make sure only allowed chars are used
         if self.contains_illegal_chars(password):
             legal = self.conf['special']['legal']
-            raise InvalidPasswordException("Only alphanumeric values and these chars {} are allowed".format(legal))
+            raise InvalidPasswordException(f"Only alphanumeric values and these chars {legal} are allowed")
 
         # password is not similar to old password < 80% match.
         if self.old_password_conflict(old_password, password):
@@ -37,18 +43,18 @@ class StrictPasswordValidator(PasswordValidator):
         # At least 1 upper case
         if not self.satisfy_upper_case_requirements(password):
             value = self.conf['upper_case']['min']['value']
-            raise InvalidPasswordException("Password must include at least {} upper case letters".format(value))
+            raise InvalidPasswordException(f"Password must include at least {value} upper case letters")
 
         # At least 1 lower case
         if not self.satisfy_lower_case_requirements(password):
             value = self.conf['lower_case']['min']['value']
-            raise InvalidPasswordException("Password must include at least {} lower case letters".format(value))
+            raise InvalidPasswordException(f"Password must include at least {value} lower case letters")
 
         # At least 1 numeric. 50 % of password should not be a number.
         if not self.satisfy_numeric_requirements(password):
             min_value = self.conf['numeric']['min']['value']
             max_value = self.conf['numeric']['max']['value']
-            error = "Password must include at least {} numeric value and less than {}% of total password length".format(min_value, max_value)
+            error = f"Password must include at least {min_value} numeric value and less than {max_value}% of total password length"
             raise InvalidPasswordException(error)
 
         # At least one special char. No more than 4 special characters. List of special chars !@#$&*
@@ -56,10 +62,10 @@ class StrictPasswordValidator(PasswordValidator):
             min_value = self.conf['special']['min']['value']
             max_value = self.conf['special']['max']['value']
             legal = self.conf['special']['legal']
-            error = "Password must include {}-{} of these special chars {}".format(min_value, max_value, legal)
+            error = f"Password must include {min_value}-{max_value} of these special chars {legal}"
             raise InvalidPasswordException(error)
 
         # No duplicate repeat characters more than 4
         if self.too_many_duplicates(password):
-            value = self.conf['special']['min']['value']
-            raise InvalidPasswordException("Password can have up to {} of duplicated chars".format(value))
+            value = self.conf['duplicates']['max']['value']
+            raise InvalidPasswordException(f"Password can have up to {value} of duplicated chars")
